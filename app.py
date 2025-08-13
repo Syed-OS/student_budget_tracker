@@ -247,6 +247,49 @@ def get_quote():
         return jsonify({"quote": quote.text})
     return jsonify({"quote": "No quotes found."})
 
+@app.get("/stats/categories")
+@login_required
+def stats_categories():
+    from sqlalchemy import func
+    today = date.today()
+    first_day = date(today.year, today.month, 1)
+
+    rows = db.session.query(
+        Expense.category,
+        func.sum(Expense.amount).label("total")
+    ).filter(
+        Expense.user_id == current_user.id,
+        Expense.date >= datetime(today.year, today.month, 1)
+    ).group_by(Expense.category).all()
+
+    data = {cat: float(total) for cat, total in rows}
+    return jsonify(data)
+
+
+@app.get("/stats/daily")
+@login_required
+def stats_daily():
+    from sqlalchemy import func
+    today = date.today()
+    first_day = date(today.year, today.month, 1)
+
+    rows = db.session.query(
+        func.strftime("%Y-%m-%d", Expense.date),  # date as string
+        func.sum(Expense.amount).label("total")
+    ).filter(
+        Expense.user_id == current_user.id,
+        Expense.date >= datetime(today.year, today.month, 1)
+    ).group_by(func.strftime("%Y-%m-%d", Expense.date))\
+     .order_by(func.strftime("%Y-%m-%d", Expense.date)).all()
+
+    # cumulative sum
+    daily_totals = {}
+    running_total = 0
+    for day_str, total in rows:
+        running_total += float(total)
+        daily_totals[day_str] = running_total
+
+    return jsonify(daily_totals)
 
 # Debug URL map
 with app.app_context():

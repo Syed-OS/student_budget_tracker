@@ -1,7 +1,82 @@
+let categoryChart, dailyChart;
+
+async function loadCharts() {
+  const catCanvas = document.getElementById("categoryChart");
+  const dayCanvas = document.getElementById("dailyChart");
+
+  // Only try to render if canvases exist on this page
+  if (!catCanvas && !dayCanvas) return;
+
+  // Category chart
+  if (catCanvas) {
+    const catRes = await fetch("/stats/categories");
+    const catData = await catRes.json();
+    const catLabels = Object.keys(catData);
+    const catValues = Object.values(catData);
+
+    if (categoryChart) categoryChart.destroy();
+    const catCtx = catCanvas.getContext("2d");
+    categoryChart = new Chart(catCtx, {
+      type: "pie",
+      data: {
+        labels: catLabels,
+        datasets: [{
+          data: catValues,
+          backgroundColor: [
+            "#3b82f6", "#f97316", "#22c55e", "#eab308", "#ef4444", "#a855f7"
+          ]
+        }]
+      }
+    });
+  }
+
+  // Daily cumulative chart
+  if (dayCanvas) {
+    const dayRes = await fetch("/stats/daily");
+    const dayData = await dayRes.json();
+    const dayLabels = Object.keys(dayData);
+    const dayValues = Object.values(dayData);
+
+    if (dailyChart) dailyChart.destroy();
+    const dayCtx = dayCanvas.getContext("2d");
+    dailyChart = new Chart(dayCtx, {
+      type: "line",
+      data: {
+        labels: dayLabels,
+        datasets: [{
+          label: "Cumulative Spend",
+          data: dayValues,
+          fill: false,
+          borderColor: "#3b82f6",
+          tension: 0.1
+        }]
+      }
+    });
+  }
+}
+
+function setBarColorBy(percent, el) {
+  el.className = ""; // reset classes
+  if (percent > 75) el.classList.add("green");
+  else if (percent > 30) el.classList.add("yellow");
+  else if (percent > 10) el.classList.add("red");
+  else el.classList.add("critical");
+}
+
+function showToast(message) {
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 3000);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const expenseForm = document.querySelector('form[action="/add_expense"]');
-  const toast = document.getElementById("toast");
   const budgetBar = document.getElementById("budget-bar");
+
+  // Load charts (if present on the page)
+  loadCharts();
 
   if (expenseForm) {
     expenseForm.addEventListener("submit", async (e) => {
@@ -14,40 +89,32 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "X-Requested-With": "XMLHttpRequest" }
       });
 
-      const data = await res.json();
+      let data;
+      try { data = await res.json(); } catch (_) { data = {}; }
 
       if (!res.ok) {
         showToast(data.error || "Error adding expense.");
         return;
       }
 
-      // Update bar
-      if (budgetBar && data.percent !== null) {
+      // Update health bar
+      if (budgetBar && data.percent !== null && data.percent !== undefined) {
         budgetBar.style.width = data.percent + "%";
-        budgetBar.className = ""; // reset
-        if (data.percent > 75) budgetBar.classList.add("green");
-        else if (data.percent > 30) budgetBar.classList.add("yellow");
-        else if (data.percent > 10) budgetBar.classList.add("red");
-        else budgetBar.classList.add("critical");
+        setBarColorBy(data.percent, budgetBar);
       }
 
-      // Fetch quote
-      const qRes = await fetch("/get_quote");
-      const qData = await qRes.json();
-      if (qData.quote) {
-        showToast(qData.quote);
+      // Fetch and show quote
+      try {
+        const qRes = await fetch("/get_quote");
+        const qData = await qRes.json();
+        if (qData.quote) showToast(qData.quote);
+      } catch (_) {
+        // non-fatal if quotes fail
       }
 
-      // Clear form
+      // Clear form & refresh charts
       expenseForm.reset();
+      loadCharts();
     });
-  }
-
-  function showToast(message) {
-    toast.textContent = message;
-    toast.classList.add("show");
-    setTimeout(() => {
-      toast.classList.remove("show");
-    }, 3000);
   }
 });
