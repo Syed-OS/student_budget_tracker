@@ -89,7 +89,97 @@ def logout():
 @app.get("/dashboard")
 @login_required
 def dashboard():
-    return render_template("dashboard.html", user=current_user)
+    today = date.today()
+    first_day = date(today.year, today.month, 1)
+
+    active_budget = Budget.query.filter_by(
+        user_id=current_user.id,
+        start_date=first_day
+    ).first()
+
+    expenses = Expense.query.filter(
+        Expense.user_id == current_user.id,
+        Expense.date >= datetime(today.year, today.month, 1)
+    ).order_by(Expense.date.desc()).limit(10).all()
+
+    return render_template(
+        "dashboard.html",
+        user=current_user,
+        budget=active_budget,
+        expenses=expenses
+    )
+
+
+from datetime import date
+import calendar
+
+@app.post("/set_budget")
+@login_required
+def set_budget():
+    try:
+        amount = request.form.get("amount", "").strip()
+        if not amount or float(amount) <= 0:
+            flash("Please enter a valid budget amount.", "error")
+            return redirect(url_for("dashboard"))
+
+        today = date.today()
+        first_day = date(today.year, today.month, 1)
+        last_day = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
+
+        # Check if budget exists for this month
+        budget = Budget.query.filter_by(user_id=current_user.id, start_date=first_day).first()
+        if budget:
+            budget.amount = amount
+            budget.end_date = last_day
+            flash("Budget updated for this month.", "success")
+        else:
+            budget = Budget(
+                user_id=current_user.id,
+                amount=amount,
+                start_date=first_day,
+                end_date=last_day
+            )
+            db.session.add(budget)
+            flash("Budget set for this month.", "success")
+
+        db.session.commit()
+    except ValueError:
+        flash("Invalid number format for budget.", "error")
+
+    return redirect(url_for("dashboard"))
+
+from datetime import datetime
+
+@app.post("/add_expense")
+@login_required
+def add_expense():
+    try:
+        amount = request.form.get("amount", "").strip()
+        category = request.form.get("category", "").strip()
+        note = request.form.get("note", "").strip()
+
+        if not amount or float(amount) <= 0:
+            flash("Please enter a valid expense amount.", "error")
+            return redirect(url_for("dashboard"))
+        if not category:
+            flash("Category is required.", "error")
+            return redirect(url_for("dashboard"))
+
+        expense = Expense(
+            user_id=current_user.id,
+            amount=amount,
+            category=category,
+            note=note or None,
+            date=datetime.utcnow()
+        )
+        db.session.add(expense)
+        db.session.commit()
+        flash("Expense added.", "success")
+    except ValueError:
+        flash("Invalid number format for expense.", "error")
+
+    return redirect(url_for("dashboard"))
+
 
 # Debug URL map
 with app.app_context():
