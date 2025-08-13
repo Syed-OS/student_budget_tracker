@@ -176,10 +176,17 @@ def add_expense():
         note = request.form.get("note", "").strip()
 
         if not amount or float(amount) <= 0:
-            flash("Please enter a valid expense amount.", "error")
+            msg = "Please enter a valid expense amount."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": msg}), 400
+            flash(msg, "error")
             return redirect(url_for("dashboard"))
+
         if not category:
-            flash("Category is required.", "error")
+            msg = "Category is required."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": msg}), 400
+            flash(msg, "error")
             return redirect(url_for("dashboard"))
 
         expense = Expense(
@@ -191,11 +198,54 @@ def add_expense():
         )
         db.session.add(expense)
         db.session.commit()
+
+        # Compute updated budget percent
+        today = date.today()
+        first_day = date(today.year, today.month, 1)
+        active_budget = Budget.query.filter_by(
+            user_id=current_user.id,
+            start_date=first_day
+        ).first()
+
+        percent_remaining = None
+        remaining = None
+        if active_budget:
+            from sqlalchemy import func
+            total_spent = db.session.query(func.coalesce(func.sum(Expense.amount), 0))\
+                .filter(
+                    Expense.user_id == current_user.id,
+                    Expense.date >= datetime(today.year, today.month, 1)
+                ).scalar()
+            remaining = float(active_budget.amount) - float(total_spent)
+            percent_remaining = max(0, remaining / float(active_budget.amount) * 100)
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({
+                "success": "Expense added.",
+                "remaining": remaining,
+                "percent": percent_remaining
+            })
+
         flash("Expense added.", "success")
     except ValueError:
-        flash("Invalid number format for expense.", "error")
+        msg = "Invalid number format for expense."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": msg}), 400
+        flash(msg, "error")
 
     return redirect(url_for("dashboard"))
+
+
+import random
+from flask import jsonify
+
+@app.get("/get_quote")
+@login_required
+def get_quote():
+    quote = Quote.query.order_by(db.func.random()).first()
+    if quote:
+        return jsonify({"quote": quote.text})
+    return jsonify({"quote": "No quotes found."})
 
 
 # Debug URL map

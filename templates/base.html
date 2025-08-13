@@ -20,6 +20,10 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+
+  <!-- Toast container for AJAX quotes -->
+  <div id="toast" class="toast" style="display:none;"></div>
+
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
