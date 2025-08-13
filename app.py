@@ -89,13 +89,28 @@ def logout():
 @app.get("/dashboard")
 @login_required
 def dashboard():
+    from sqlalchemy import func
     today = date.today()
     first_day = date(today.year, today.month, 1)
 
+    # Active budget
     active_budget = Budget.query.filter_by(
         user_id=current_user.id,
         start_date=first_day
     ).first()
+
+    total_spent = 0
+    percent_remaining = None
+
+    if active_budget:
+        total_spent = db.session.query(func.coalesce(func.sum(Expense.amount), 0))\
+            .filter(
+                Expense.user_id == current_user.id,
+                Expense.date >= datetime(today.year, today.month, 1)
+            ).scalar()
+
+        remaining = active_budget.amount - total_spent
+        percent_remaining = max(0, float(remaining) / float(active_budget.amount) * 100)
 
     expenses = Expense.query.filter(
         Expense.user_id == current_user.id,
@@ -106,7 +121,9 @@ def dashboard():
         "dashboard.html",
         user=current_user,
         budget=active_budget,
-        expenses=expenses
+        expenses=expenses,
+        total_spent=total_spent,
+        percent_remaining=percent_remaining
     )
 
 

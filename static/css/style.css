@@ -32,3 +32,33 @@ button {
 .flash.success { background: rgba(34, 211, 238, 0.15); border: 1px solid rgba(34,211,238,0.4);}
 .flash.error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239,68,68,0.4);}
 .muted { color: var(--muted); }
+
+.progress-container {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 20px;
+  margin: 0.5rem 0 1rem;
+}
+
+#budget-bar {
+  height: 100%;
+  transition: width 0.6s ease;
+}
+
+/* Color thresholds */
+#budget-bar.green { background: #22c55e; }  /* > 75% */
+#budget-bar.yellow { background: #eab308; } /* 30–75% */
+#budget-bar.red { background: #ef4444; }    /* < 30% */
+#budget-bar.critical {
+  background: #ef4444;
+  animation: pulse-red 1s infinite;
+}
+
+@keyframes pulse-red {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+

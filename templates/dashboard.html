@@ -6,6 +6,13 @@
 
   {% if budget %}
     <p>Your budget for this month: <strong>${{ "%.2f"|format(budget.amount) }}</strong></p>
+    <p>Total spent: <strong>${{ "%.2f"|format(total_spent) }}</strong></p>
+    <p>Remaining: <strong>${{ "%.2f"|format(budget.amount - total_spent) }}</strong></p>
+
+    <div class="progress-container">
+      <div id="budget-bar" style="width: {{ percent_remaining }}%"></div>
+    </div>
+
   {% else %}
     <p>You have not set a budget for this month yet.</p>
   {% endif %}
