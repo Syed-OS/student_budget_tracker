@@ -1,0 +1,14 @@
+<nav class="nav">
+  <div class="nav-left">
+    <a class="brand" href="{{ url_for('index') }}">Budget Tracker</a>
+  </div>
+  <div class="nav-right">
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <a href="{{ url_for('login') }}">Login</a>
+      <a href="{{ url_for('signup') }}">Sign Up</a>
+    {% endif %}
+  </div>
+</nav>
