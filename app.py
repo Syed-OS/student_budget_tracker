@@ -1,23 +1,25 @@
-# app.py
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
 from config import Config
+from extensions import db, login_manager
 
 # --- App & Config ---
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# --- Extensions ---
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = "login"  # where to send unauthenticated users later
+# --- Initialize extensions ---
+db.init_app(app)
+login_manager.init_app(app)
 
-# --- Simple health check (sanity test) ---
+# --- Import models AFTER init ---
+from models import User, Budget, Expense, Quote
+
+with app.app_context():
+    db.create_all()
+
+# --- Routes ---
 @app.get("/health")
 def health():
     return "ok"
 
 if __name__ == "__main__":
-    # Dev server (we'll use gunicorn in production)
     app.run(debug=True)
