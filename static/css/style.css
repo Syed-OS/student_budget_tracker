@@ -80,4 +80,18 @@ button {
   display: block;
   opacity: 1;
 }
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+.stat { background: rgba(255,255,255,0.06); padding: 0.9rem; border-radius: 10px; }
+.stat-label { color: var(--muted); font-size: 0.9rem; }
+.stat-value { font-size: 1.25rem; font-weight: 700; }
+.btn {
+  display: inline-block; padding: 0.45rem 0.8rem; border-radius: 8px; text-decoration: none;
+  background: var(--accent); color: #001016; font-weight: 700;
+}
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; }
 

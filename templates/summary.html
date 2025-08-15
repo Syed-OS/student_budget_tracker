@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Summary · {{ month_label }} · Budget Tracker{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Summary — {{ month_label }}</h1>
+
+  <form method="get" action="{{ url_for('summary') }}" style="margin: 0.5rem 0 1rem;">
+    <label>View month (YYYY-MM):
+      <input type="month" name="month" value="{{ month_param }}">
+    </label>
+    <button type="submit">Go</button>
+    <a class="btn" href="{{ url_for('summary_csv', month=month_param) }}" style="margin-left: 0.5rem;">Download CSV</a>
+  </form>
+
+  <div class="grid-2">
+    <div class="stat">
+      <div class="stat-label">Total Spent</div>
+      <div class="stat-value">${{ "%.2f"|format(total_spent) }}</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">Average Daily Spend</div>
+      <div class="stat-value">${{ "%.2f"|format(avg_daily) }}</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">Budget</div>
+      <div class="stat-value">
+        {% if budget %}${{ "%.2f"|format(budget.amount) }}{% else %}—{% endif %}
+      </div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">Remaining</div>
+      <div class="stat-value">
+        {% if remaining is not none %}${{ "%.2f"|format(remaining) }}{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Top Categories</h2>
+  {% if top_categories %}
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cat, total in top_categories %}
+          <tr>
+            <td>{{ cat }}</td>
+            <td>${{ "%.2f"|format(total) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No expenses recorded for this month.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Biggest Expense</h2>
+  {% if biggest %}
+    <p><strong>${{ "%.2f"|format(biggest.amount) }}</strong> — {{ biggest.category }} on {{ biggest.date.strftime('%Y-%m-%d') }}{% if biggest.note %} ({{ biggest.note }}){% endif %}</p>
+  {% else %}
+    <p>No expenses this month.</p>
+  {% endif %}
+</section>
+{% endblock %}
