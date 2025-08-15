@@ -1,4 +1,5 @@
 # app.py
+from decimal import Decimal, ROUND_HALF_UP
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -13,10 +14,27 @@ from config import Config
 from extensions import db, login_manager  # ✅ use the shared instances
 from models import User, Budget, Expense, Quote
 
+CATEGORIES = ["Food", "Transport", "Rent", "Books", "Supplies", "Fun", "Health", "Other"]
 
 # --- App & Config ---
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# --- Jinja filters: money + date ---
+@app.template_filter("money")
+def money_filter(value):
+    try:
+        d = Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return f"${d:,.2f}"
+    except Exception:
+        return "$0.00"
+
+@app.template_filter("ymd")
+def ymd_filter(dt):
+    try:
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
 
 # Trust proxy headers (needed for real IP & HTTPS detection in production)
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -182,8 +200,10 @@ def dashboard():
         budget=active_budget,
         expenses=expenses,
         total_spent=total_spent,
-        percent_remaining=percent_remaining
-    )
+        percent_remaining=percent_remaining,
+        categories=CATEGORIES,
+        rollover_prompt=(active_budget is None)
+        )
 
 from datetime import date
 import calendar
@@ -369,6 +389,57 @@ def add_expense():
 
     return redirect(url_for("dashboard"))
 
+@app.get("/expense/<int:expense_id>/edit")
+@login_required
+def edit_expense(expense_id):
+    exp = Expense.query.get_or_404(expense_id)
+    if exp.user_id != current_user.id:
+        flash("Not authorized.", "error")
+        return redirect(url_for("dashboard"))
+    return render_template("expense_edit.html", expense=exp, categories=CATEGORIES)
+
+@app.post("/expense/<int:expense_id>/edit")
+@login_required
+def update_expense(expense_id):
+    exp = Expense.query.get_or_404(expense_id)
+    if exp.user_id != current_user.id:
+        flash("Not authorized.", "error")
+        return redirect(url_for("dashboard"))
+
+    try:
+        amount = request.form.get("amount", "").strip()
+        category = request.form.get("category", "").strip()
+        note = request.form.get("note", "").strip()
+
+        if not amount or float(amount) <= 0:
+            flash("Please enter a valid amount.", "error")
+            return redirect(url_for("edit_expense", expense_id=expense_id))
+        if not category:
+            flash("Category is required.", "error")
+            return redirect(url_for("edit_expense", expense_id=expense_id))
+
+        exp.amount = amount
+        exp.category = category
+        exp.note = note or None
+        db.session.commit()
+        flash("Expense updated.", "success")
+    except ValueError:
+        flash("Invalid number format.", "error")
+
+    return redirect(url_for("dashboard"))
+
+@app.post("/expense/<int:expense_id>/delete")
+@login_required
+def delete_expense(expense_id):
+    exp = Expense.query.get_or_404(expense_id)
+    if exp.user_id != current_user.id:
+        flash("Not authorized.", "error")
+        return redirect(url_for("dashboard"))
+
+    db.session.delete(exp)
+    db.session.commit()
+    flash("Expense deleted.", "success")
+    return redirect(url_for("dashboard"))
 
 import random
 from flask import jsonify

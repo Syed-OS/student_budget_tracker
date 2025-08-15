@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Edit Expense · Budget Tracker{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Edit Expense</h1>
+  <form method="post" action="{{ url_for('update_expense', expense_id=expense.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    
+    <label>Amount:
+      <input name="amount" type="number" step="0.01" required value="{{ expense.amount }}">
+    </label>
+
+    <label>Category:
+      <select name="category" required>
+        {% for c in categories %}
+          <option value="{{ c }}" {% if c == expense.category %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>Note (optional):
+      <input name="note" type="text" value="{{ expense.note or '' }}">
+    </label>
+
+    <button type="submit">Save Changes</button>
+    <a class="btn" href="{{ url_for('dashboard') }}" style="margin-left:0.5rem;">Cancel</a>
+  </form>
+</section>
+{% endblock %}
