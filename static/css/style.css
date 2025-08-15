@@ -95,3 +95,90 @@ button {
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; }
 
+/* ====== Visual polish: immersive dynamic background ====== */
+@keyframes bgShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body.bg {
+  margin: 0; color: var(--text);
+  min-height: 100vh;
+  background: linear-gradient(120deg, var(--bg1), var(--bg2));
+  background-size: 200% 200%;
+  animation: bgShift 18s ease infinite;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+}
+
+/* Mood variants driven by remaining % (JS toggles these) */
+body.mood-green  { --bg1:#052e2b; --bg2:#0b5e55; }
+body.mood-yellow { --bg1:#3a3000; --bg2:#9a7b00; }
+body.mood-red    { --bg1:#3a0710; --bg2:#7a0f1f; }
+body.mood-critical { --bg1:#2a0004; --bg2:#5c0010; }
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  body.bg { animation: none; }
+  #budget-bar { transition: none; }
+}
+
+/* ====== Glassmorphism cards ====== */
+.card {
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin: 1rem 0;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+/* Buttons & inputs refinements */
+button, .btn {
+  display: inline-block;
+  margin-top: 0.75rem; padding: 0.6rem 1rem;
+  border-radius: 12px; border: none;
+  background: var(--accent); color: #001016; font-weight: 700; cursor: pointer;
+}
+button:hover, .btn:hover { filter: brightness(1.05); }
+
+input {
+  width: 100%; padding: 0.65rem 0.8rem; border-radius: 12px;
+  border: 1px solid #2a3444; background: #0b1220; color: var(--text);
+}
+
+/* Navbar polish */
+.nav {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem 1rem; background: rgba(0,0,0,0.25); backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 10;
+}
+.nav a { color: var(--text); text-decoration: none; margin-left: 1rem; }
+.brand { color: var(--accent); font-weight: 800; letter-spacing: 0.2px; }
+
+/* Progress bar visuals already exist; ensure rounded look */
+.progress-container { border-radius: 10px; height: 22px; }
+#budget-bar { border-radius: 10px; }
+
+/* Tables: responsive + clean */
+table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+th, td { padding: 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; }
+@media (max-width: 600px) {
+  table { font-size: 0.88rem; }
+}
+
+/* Skip link for accessibility */
+.skip-link {
+  position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden;
+}
+.skip-link:focus {
+  position: fixed; left: 12px; top: 12px; width: auto; height: auto;
+  background: #111827; color: #fff; padding: 0.5rem 0.75rem; border-radius: 8px; z-index: 1000;
+}
+
+/* Focus outlines (keyboard users) */
+:focus-visible {
+  outline: 3px solid #22d3ee; outline-offset: 2px;
+}
+

@@ -63,6 +63,16 @@ function setBarColorBy(percent, el) {
   else el.classList.add("critical");
 }
 
+// NEW: set body background mood
+function setBodyMoodBy(percent) {
+  const body = document.body;
+  body.classList.remove("mood-green", "mood-yellow", "mood-red", "mood-critical");
+  if (percent > 75) body.classList.add("mood-green");
+  else if (percent > 30) body.classList.add("mood-yellow");
+  else if (percent > 10) body.classList.add("mood-red");
+  else body.classList.add("mood-critical");
+}
+
 function showToast(message) {
   const toast = document.getElementById("toast");
   if (!toast) return;
@@ -74,6 +84,13 @@ function showToast(message) {
 document.addEventListener("DOMContentLoaded", () => {
   const expenseForm = document.querySelector('form[action="/add_expense"]');
   const budgetBar = document.getElementById("budget-bar");
+
+  // INITIAL: set body mood from server-rendered percent (if present)
+  const percentDiv = document.getElementById("percent-remaining");
+  if (percentDiv) {
+    const p = parseFloat(percentDiv.dataset.percent);
+    if (!Number.isNaN(p)) setBodyMoodBy(p);
+  }
 
   // Load charts (if present on the page)
   loadCharts();
@@ -97,10 +114,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Update health bar
+      // Update health bar + page mood
       if (budgetBar && data.percent !== null && data.percent !== undefined) {
         budgetBar.style.width = data.percent + "%";
         setBarColorBy(data.percent, budgetBar);
+        setBodyMoodBy(data.percent); // update background mood dynamically
       }
 
       // Fetch and show quote
