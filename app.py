@@ -195,20 +195,22 @@ def set_budget():
     try:
         amount = request.form.get("amount", "").strip()
         if not amount or float(amount) <= 0:
-            flash("Please enter a valid budget amount.", "error")
+            flash("Please enter a valid amount.", "error")
             return redirect(url_for("dashboard"))
 
         today = date.today()
         first_day = date(today.year, today.month, 1)
         last_day = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
 
-        # Check if budget exists for this month
         budget = Budget.query.filter_by(user_id=current_user.id, start_date=first_day).first()
+
         if budget:
-            budget.amount = amount
+            # Add money to existing budget instead of replacing it
+            budget.amount = float(budget.amount) + float(amount)
             budget.end_date = last_day
-            flash("Budget updated for this month.", "success")
+            flash(f"Added ${amount} to this month's budget.", "success")
         else:
+            # First time setting budget this month
             budget = Budget(
                 user_id=current_user.id,
                 amount=amount,
@@ -219,6 +221,7 @@ def set_budget():
             flash("Budget set for this month.", "success")
 
         db.session.commit()
+
     except ValueError:
         flash("Invalid number format for budget.", "error")
 
@@ -248,7 +251,31 @@ def add_expense():
                 return jsonify({"error": msg}), 400
             flash(msg, "error")
             return redirect(url_for("dashboard"))
+        
+        # Find current month's budget
+        today = date.today()
+        first_day = date(today.year, today.month, 1)
+        active_budget = Budget.query.filter_by(
+            user_id=current_user.id,
+            start_date=first_day
+        ).first()
 
+        if active_budget:
+            from sqlalchemy import func
+            total_spent = db.session.query(func.coalesce(func.sum(Expense.amount), 0))\
+                .filter(
+                    Expense.user_id == current_user.id,
+                    Expense.date >= datetime(today.year, today.month, 1)
+                ).scalar()
+            remaining = float(active_budget.amount) - float(total_spent)
+
+            if float(amount) > remaining:
+                msg = "You cannot spend more than your remaining budget."
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"error": msg}), 400
+                flash(msg, "error")
+                return redirect(url_for("dashboard"))
+            
         expense = Expense(
             user_id=current_user.id,
             amount=amount,
