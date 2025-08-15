@@ -17,3 +17,11 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     # SESSION_COOKIE_SECURE = True  # uncomment when on HTTPS
+
+    # CSRF settings (Flask-WTF)
+    WTF_CSRF_TIME_LIMIT = 60 * 60 * 2  # 2 hours
+    WTF_CSRF_METHODS = ["POST", "PUT", "PATCH", "DELETE"]
+
+    # Optionally expose X-RateLimit-* headers
+    RATELIMIT_HEADERS_ENABLED = True
+

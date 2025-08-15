@@ -1,4 +1,7 @@
 # app.py
+from flask_wtf.csrf import CSRFProtect, CSRFError
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask import Response
 import calendar
 from datetime import datetime, date
@@ -10,9 +13,20 @@ from config import Config
 from extensions import db, login_manager  # ✅ use the shared instances
 from models import User, Budget, Expense, Quote
 
+
 # --- App & Config ---
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Trust proxy headers (needed for real IP & HTTPS detection in production)
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+# CSRF protection
+csrf = CSRFProtect(app)
+
+# Rate limiter
+limiter = Limiter(get_remote_address, app=app, default_limits=[])
 
 # --- Init extensions ---
 db.init_app(app)
@@ -21,6 +35,12 @@ login_manager.init_app(app)
 # --- Create tables ---
 with app.app_context():
     db.create_all()
+
+# Handle CSRF errors globally
+@app.errorhandler(CSRFError)
+def handle_csrf(e):
+    flash("Security check failed (CSRF). Please try again.", "error")
+    return redirect(url_for("index")), 400
 
 def month_bounds(ym: str | None) -> tuple[date, date, str]:
     """
@@ -68,6 +88,7 @@ def index():
     return redirect(url_for("login"))
 
 # ---------- AUTH ----------
+@limiter.limit("3 per minute")
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
@@ -99,6 +120,7 @@ def signup():
 
     return render_template("signup.html")
 
+@limiter.limit("5 per minute")
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -204,6 +226,7 @@ def set_budget():
 
 from datetime import datetime
 
+@limiter.limit("10 per minute") 
 @app.post("/add_expense")
 @login_required
 def add_expense():
@@ -424,6 +447,24 @@ with app.app_context():
     for rule in app.url_map.iter_rules():
         print(rule)
     print("==============\n")
+
+@app.after_request
+def add_security_headers(resp):
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'"
+    )
+    resp.headers["Content-Security-Policy"] = csp
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return resp
 
 if __name__ == "__main__":
     app.run(debug=True)
