@@ -114,11 +114,21 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      // ✅ Update Remaining and Total Spent instantly
+      if (data.remaining !== null && data.remaining !== undefined) {
+        const remainingEl = document.getElementById("remaining-amount");
+        if (remainingEl) remainingEl.textContent = `$${parseFloat(data.remaining).toFixed(2)}`;
+      }
+      if (data.total_spent !== null && data.total_spent !== undefined) {
+        const spentEl = document.getElementById("total-spent-amount");
+        if (spentEl) spentEl.textContent = `$${parseFloat(data.total_spent).toFixed(2)}`;
+      }
+
       // Update health bar + page mood
       if (budgetBar && data.percent !== null && data.percent !== undefined) {
         budgetBar.style.width = data.percent + "%";
         setBarColorBy(data.percent, budgetBar);
-        setBodyMoodBy(data.percent); // update background mood dynamically
+        setBodyMoodBy(data.percent);
       }
 
       // Fetch and show quote

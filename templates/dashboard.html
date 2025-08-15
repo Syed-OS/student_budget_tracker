@@ -10,8 +10,8 @@
 
   {% if budget %}
     <p>Your budget for this month: <strong id="budget-amount">${{ "%.2f"|format(budget.amount) }}</strong></p>
-    <p>Total spent: <strong id="total-spent">${{ "%.2f"|format(total_spent) }}</strong></p>
-    <p>Remaining: <strong id="remaining">${{ "%.2f"|format(budget.amount - total_spent) }}</strong></p>
+    <p>Total spent: <strong id="total-spent-amount">${{ "%.2f"|format(total_spent) }}</strong></p>
+    <p>Remaining: <strong id="remaining-amount">${{ "%.2f"|format(budget.amount - total_spent) }}</strong></p>
 
     <!-- Always visible progress bar -->
     <div class="progress-container">
@@ -57,7 +57,7 @@
 
 <section class="card">
   <h2>Add Expense</h2>
-  <form method="post" action="{{ url_for('add_expense') }}">
+  <form id="expense-form" method="post" action="{{ url_for('add_expense') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Amount:
       <input name="amount" type="number" step="0.01" required>
@@ -84,7 +84,7 @@
           <th>Amount</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="recent-expenses">
         {% for exp in expenses %}
           <tr>
             <td>{{ exp.date.strftime('%Y-%m-%d') }}</td>
@@ -113,37 +113,65 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const budgetForm = document.getElementById("budget-form");
+  const expenseForm = document.getElementById("expense-form");
   const budgetBar = document.getElementById("budget-bar");
 
+  // Handle budget updates
   if (budgetForm) {
     budgetForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-
       const formData = new FormData(budgetForm);
       const res = await fetch(budgetForm.action, {
         method: "POST",
         body: formData,
         headers: { "X-Requested-With": "XMLHttpRequest" }
       });
-
       const data = await res.json();
       if (!res.ok) {
         alert(data.error || "Error updating budget");
         return;
       }
-
-      // Update text values
       document.getElementById("budget-amount").textContent = `$${data.budget.toFixed(2)}`;
-      document.getElementById("total-spent").textContent = `$${data.total_spent.toFixed(2)}`;
-      document.getElementById("remaining").textContent = `$${data.remaining.toFixed(2)}`;
-
-      // Update progress bar
+      document.getElementById("total-spent-amount").textContent = `$${data.total_spent.toFixed(2)}`;
+      document.getElementById("remaining-amount").textContent = `$${data.remaining.toFixed(2)}`;
       budgetBar.style.width = `${data.percent}%`;
-      budgetBar.className = ""; // reset
+      budgetBar.className = "";
       if (data.percent > 75) budgetBar.classList.add("green");
       else if (data.percent > 30) budgetBar.classList.add("yellow");
       else if (data.percent > 10) budgetBar.classList.add("red");
       else budgetBar.classList.add("critical");
+    });
+  }
+
+  // Handle expense additions
+  if (expenseForm) {
+    expenseForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(expenseForm);
+      const res = await fetch(expenseForm.action, {
+        method: "POST",
+        body: formData,
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Error adding expense");
+        return;
+      }
+      // Update numbers
+      document.getElementById("remaining-amount").textContent = `$${data.remaining.toFixed(2)}`;
+      document.getElementById("total-spent-amount").textContent = `$${data.total_spent.toFixed(2)}`;
+      budgetBar.style.width = `${data.percent}%`;
+      budgetBar.className = "";
+      if (data.percent > 75) budgetBar.classList.add("green");
+      else if (data.percent > 30) budgetBar.classList.add("yellow");
+      else if (data.percent > 10) budgetBar.classList.add("red");
+      else budgetBar.classList.add("critical");
+      // Optionally reload recent expenses table
+      if (data.new_expense_row) {
+        document.getElementById("recent-expenses").insertAdjacentHTML("afterbegin", data.new_expense_row);
+      }
+      expenseForm.reset();
     });
   }
 });
