@@ -9,33 +9,51 @@
   {% endif %}
 
   {% if budget %}
-    <p>Your budget for this month: <strong>${{ "%.2f"|format(budget.amount) }}</strong></p>
-    <p>Total spent: <strong>${{ "%.2f"|format(total_spent) }}</strong></p>
-    <p>Remaining: <strong>${{ "%.2f"|format(budget.amount - total_spent) }}</strong></p>
+    <p>Your budget for this month: <strong id="budget-amount">${{ "%.2f"|format(budget.amount) }}</strong></p>
+    <p>Total spent: <strong id="total-spent">${{ "%.2f"|format(total_spent) }}</strong></p>
+    <p>Remaining: <strong id="remaining">${{ "%.2f"|format(budget.amount - total_spent) }}</strong></p>
 
+    <!-- Always visible progress bar -->
     <div class="progress-container">
-      <div id="budget-bar" style="width: {{ percent_remaining }}%"></div>
+      <div id="budget-bar"
+           style="width: {{ percent_remaining or 0 }}%;"
+           class="
+             {% if percent_remaining is not none %}
+               {% if percent_remaining > 75 %}green
+               {% elif percent_remaining > 30 %}yellow
+               {% elif percent_remaining > 10 %}red
+               {% else %}critical
+               {% endif %}
+             {% else %}
+               neutral
+             {% endif %}
+           ">
+      </div>
     </div>
   {% else %}
     <p>You have not set a budget for this month yet.</p>
+    <!-- Neutral progress bar for no budget -->
+    <div class="progress-container">
+      <div id="budget-bar" style="width: 0%;" class="neutral"></div>
+    </div>
   {% endif %}
 
   <!-- Budget Form -->
-<form method="post" action="{{ url_for('set_budget') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {% if budget %}
-    <label>Add Additional Money:
-      <input name="amount" type="number" step="0.01" placeholder="Enter amount to add" required>
-    </label>
-    <button type="submit">Add Money</button>
-  {% else %}
-    <label>Set Monthly Budget:
-      <input name="amount" type="number" step="0.01" placeholder="Enter budget amount" required>
-    </label>
-    <button type="submit">Set Budget</button>
-  {% endif %}
-</form>
-
+  <form id="budget-form" method="post" action="{{ url_for('set_budget') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if budget %}
+      <label>Add Additional Money:
+        <input name="amount" type="number" step="0.01" placeholder="Enter amount to add" required>
+      </label>
+      <button type="submit">Add Money</button>
+    {% else %}
+      <label>Set Monthly Budget:
+        <input name="amount" type="number" step="0.01" placeholder="Enter budget amount" required>
+      </label>
+      <button type="submit">Set Budget</button>
+    {% endif %}
+  </form>
+</section>
 
 <section class="card">
   <h2>Add Expense</h2>
@@ -91,4 +109,43 @@
     <canvas id="dailyChart"></canvas>
   </div>
 </section>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const budgetForm = document.getElementById("budget-form");
+  const budgetBar = document.getElementById("budget-bar");
+
+  if (budgetForm) {
+    budgetForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(budgetForm);
+      const res = await fetch(budgetForm.action, {
+        method: "POST",
+        body: formData,
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Error updating budget");
+        return;
+      }
+
+      // Update text values
+      document.getElementById("budget-amount").textContent = `$${data.budget.toFixed(2)}`;
+      document.getElementById("total-spent").textContent = `$${data.total_spent.toFixed(2)}`;
+      document.getElementById("remaining").textContent = `$${data.remaining.toFixed(2)}`;
+
+      // Update progress bar
+      budgetBar.style.width = `${data.percent}%`;
+      budgetBar.className = ""; // reset
+      if (data.percent > 75) budgetBar.classList.add("green");
+      else if (data.percent > 30) budgetBar.classList.add("yellow");
+      else if (data.percent > 10) budgetBar.classList.add("red");
+      else budgetBar.classList.add("critical");
+    });
+  }
+});
+</script>
 {% endblock %}

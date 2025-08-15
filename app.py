@@ -185,47 +185,94 @@ def dashboard():
         percent_remaining=percent_remaining
     )
 
-
 from datetime import date
 import calendar
+from flask import jsonify
 
 @app.post("/set_budget")
 @login_required
 def set_budget():
     try:
-        amount = request.form.get("amount", "").strip()
-        if not amount or float(amount) <= 0:
-            flash("Please enter a valid amount.", "error")
+        amount_str = request.form.get("amount", "").strip()
+        if not amount_str:
+            msg = "Please enter an amount."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": msg}), 400
+            flash(msg, "error")
+            return redirect(url_for("dashboard"))
+
+        try:
+            amount_val = float(amount_str)
+        except ValueError:
+            msg = "Invalid number format for budget."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": msg}), 400
+            flash(msg, "error")
+            return redirect(url_for("dashboard"))
+
+        if amount_val <= 0:
+            msg = "Amount must be greater than zero."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": msg}), 400
+            flash(msg, "error")
             return redirect(url_for("dashboard"))
 
         today = date.today()
         first_day = date(today.year, today.month, 1)
-        last_day = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
+        last_day = date(today.year, today.month,
+                        calendar.monthrange(today.year, today.month)[1])
 
-        budget = Budget.query.filter_by(user_id=current_user.id, start_date=first_day).first()
+        budget = Budget.query.filter_by(
+            user_id=current_user.id,
+            start_date=first_day
+        ).first()
 
         if budget:
-            # Add money to existing budget instead of replacing it
-            budget.amount = float(budget.amount) + float(amount)
+            budget.amount = float(budget.amount) + amount_val
             budget.end_date = last_day
-            flash(f"Added ${amount} to this month's budget.", "success")
+            success_msg = f"Added ${amount_val:.2f} to this month's budget."
         else:
-            # First time setting budget this month
             budget = Budget(
                 user_id=current_user.id,
-                amount=amount,
+                amount=amount_val,
                 start_date=first_day,
                 end_date=last_day
             )
             db.session.add(budget)
-            flash("Budget set for this month.", "success")
+            success_msg = f"Budget set to ${amount_val:.2f} for this month."
 
         db.session.commit()
 
-    except ValueError:
-        flash("Invalid number format for budget.", "error")
+        # Calculate updated percent for health bar
+        from sqlalchemy import func
+        total_spent = db.session.query(func.coalesce(func.sum(Expense.amount), 0))\
+            .filter(
+                Expense.user_id == current_user.id,
+                Expense.date >= first_day
+            ).scalar()
 
-    return redirect(url_for("dashboard"))
+        percent_remaining = max(0, (float(budget.amount) - float(total_spent)) / float(budget.amount) * 100)
+
+        # If AJAX request, return JSON
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({
+                "success": success_msg,
+                "budget": float(budget.amount),
+                "total_spent": float(total_spent),
+                "remaining": float(budget.amount) - float(total_spent),
+                "percent": percent_remaining
+            })
+
+        flash(success_msg, "success")
+        return redirect(url_for("dashboard"))
+
+    except Exception as e:
+        app.logger.error(f"Error in set_budget: {e}")
+        msg = "An unexpected error occurred while setting the budget."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": msg}), 500
+        flash(msg, "error")
+        return redirect(url_for("dashboard"))
 
 from datetime import datetime
 
