@@ -1,4 +1,6 @@
 # app.py
+import os
+from werkzeug.middleware.proxy_fix import ProxyFix
 from decimal import Decimal, ROUND_HALF_UP
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
@@ -18,6 +20,13 @@ CATEGORIES = ["Food", "Transport", "Rent", "Books", "Supplies", "Fun", "Health",
 
 # --- App & Config ---
 app = Flask(__name__)
+# Trust Render/Heroku proxy so .is_secure and rate limiting work right
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+# Enable secure cookies in production
+if os.getenv("RENDER", "") == "true" or os.getenv("FLASK_ENV") == "production":
+    app.config["SESSION_COOKIE_SECURE"] = True
+
 app.config.from_object(Config)
 
 # --- Jinja filters: money + date ---
